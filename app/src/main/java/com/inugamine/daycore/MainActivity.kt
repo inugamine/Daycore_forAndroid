@@ -1,6 +1,8 @@
 package com.inugamine.daycore
 
 import android.Manifest
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -42,9 +45,22 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val windowSizeClass = calculateWindowSizeClass(this)
+            val isExpanded = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
+
+            // スマホ版（Compact）では画面回転を固定
+            val context = LocalContext.current
+            LaunchedEffect(isExpanded) {
+                val activity = context as? Activity
+                activity?.requestedOrientation = if (isExpanded) {
+                    ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                } else {
+                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                }
+            }
+
             DaycoreTheme {
                 DaycoreApp(
-                    isExpanded = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
+                    isExpanded = isExpanded
                 )
             }
         }
