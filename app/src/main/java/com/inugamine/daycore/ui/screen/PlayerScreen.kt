@@ -2,6 +2,8 @@ package com.inugamine.daycore.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -26,7 +28,8 @@ import com.inugamine.daycore.viewmodel.PlayerViewModel
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
-    onOpenLibrary: () -> Unit
+    onOpenLibrary: () -> Unit,
+    showLibraryButton: Boolean = true
 ) {
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
@@ -53,6 +56,7 @@ fun PlayerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .statusBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -68,14 +72,16 @@ fun PlayerScreen(
                 Text("Daycore", style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold, color = DaycoreTextPrimary)
                 IconButton(onClick = onOpenLibrary) {
-                    Icon(Icons.Default.LibraryMusic, "ライブラリ", tint = DaycoreAccent)
+                    if (showLibraryButton) {
+                        Icon(Icons.Default.LibraryMusic, "ライブラリ", tint = DaycoreAccent)
+                    }
                 }
             }
 
             if (currentTrack != null) {
                 val track = currentTrack!!
 
-                Spacer(modifier = Modifier.weight(0.5f))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // アートワーク代替
                 Surface(
@@ -153,11 +159,11 @@ fun PlayerScreen(
                     displayFormat = "%+.1f st"
                 )
 
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(24.dp))
 
             } else {
                 // Empty State
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(40.dp))
                 Icon(Icons.Default.GraphicEq, null, tint = DaycoreAccent,
                     modifier = Modifier.size(80.dp))
                 Spacer(modifier = Modifier.height(20.dp))
@@ -166,16 +172,18 @@ fun PlayerScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("曲を選んで Daycore の世界へ", color = DaycoreTextSecondary)
                 Spacer(modifier = Modifier.height(24.dp))
-                Button(
-                    onClick = onOpenLibrary,
-                    colors = ButtonDefaults.buttonColors(containerColor = DaycoreAccent),
-                    shape = RoundedCornerShape(50)
-                ) {
-                    Icon(Icons.Default.LibraryMusic, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("ライブラリを開く")
+                if (showLibraryButton) {
+                    Button(
+                        onClick = onOpenLibrary,
+                        colors = ButtonDefaults.buttonColors(containerColor = DaycoreAccent),
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Icon(Icons.Default.LibraryMusic, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("ライブラリを開く")
+                    }
                 }
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(40.dp))
             }
         }
     }

@@ -23,7 +23,8 @@ fun LibraryScreen(
     viewModel: PlayerViewModel,
     onTrackSelected: () -> Unit,
     onImportFile: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    showBackButton: Boolean = true
 ) {
     val filteredTracks by viewModel.filteredTracks.collectAsState()
     val libraryTracks by viewModel.libraryTracks.collectAsState()
@@ -39,10 +40,12 @@ fun LibraryScreen(
             TopAppBar(
                 title = { Text("ライブラリ") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                if (showBackButton) {
+                IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "戻る")
-                    }
-                },
+                        }
+                }
+            },
                 actions = {
                     if (selectedTab == 1) {
                         IconButton(onClick = onImportFile) {

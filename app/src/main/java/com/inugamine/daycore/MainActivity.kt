@@ -9,7 +9,19 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -17,26 +29,33 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.inugamine.daycore.ui.screen.LibraryScreen
 import com.inugamine.daycore.ui.screen.PlayerScreen
+import com.inugamine.daycore.ui.theme.DaycoreBackground
 import com.inugamine.daycore.ui.theme.DaycoreTheme
+import com.inugamine.daycore.ui.theme.DaycoreDivider
 import com.inugamine.daycore.viewmodel.PlayerViewModel
 
 class MainActivity : ComponentActivity() {
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         setContent {
+            val windowSizeClass = calculateWindowSizeClass(this)
             DaycoreTheme {
-                DaycoreApp()
+                DaycoreApp(
+                    isExpanded = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
+                )
             }
         }
     }
 }
 
 @Composable
-fun DaycoreApp(viewModel: PlayerViewModel = viewModel()) {
-    val navController = rememberNavController()
-
+fun DaycoreApp(
+    viewModel: PlayerViewModel = viewModel(),
+    isExpanded: Boolean = false
+) {
     // --- パーミッション ---
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -44,18 +63,15 @@ fun DaycoreApp(viewModel: PlayerViewModel = viewModel()) {
         if (granted) viewModel.loadMusicLibrary()
     }
 
-    // ファイルインポート用ランチャー
     val filePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
         uris.forEach { viewModel.importFile(it) }
     }
 
-    // 初回起動時にパーミッションチェック
     LaunchedEffect(Unit) {
         val context = viewModel.getApplication<android.app.Application>()
 
-        // 通知パーミッション（Android 13+）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -63,7 +79,6 @@ fun DaycoreApp(viewModel: PlayerViewModel = viewModel()) {
             }
         }
 
-        // 音楽ライブラリパーミッション
         val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_AUDIO
         } else {
@@ -77,6 +92,100 @@ fun DaycoreApp(viewModel: PlayerViewModel = viewModel()) {
         }
     }
 
+    // --- キーボードショートカット（Googlebook 対応）---
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .focusRequester(focusRequester)
+            .focusable()
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown) {
+                    when (event.key) {
+                        Key.Spacebar -> { viewModel.togglePlayPause(); true }
+                        Key.DirectionLeft -> {
+                            val pos = viewModel.currentPosition.value
+                            viewModel.seekTo((pos - 10000).coerceAtLeast(0))
+                            true
+                        }
+                        Key.DirectionRight -> {
+                            val pos = viewModel.currentPosition.value
+                            val dur = viewModel.duration.value
+                            viewModel.seekTo((pos + 10000).coerceAtMost(dur))
+                            true
+                        }
+                        else -> false
+                    }
+                } else false
+            }
+    ) {
+        if (isExpanded) {
+            // タブレット / Googlebook: 2ペインレイアウト
+            TwoPaneLayout(viewModel, filePickerLauncher)
+        } else {
+            // スマートフォン: シングルペイン（Navigation）
+            SinglePaneLayout(viewModel, filePickerLauncher)
+        }
+    }
+}
+
+@Composable
+private fun TwoPaneLayout(
+    viewModel: PlayerViewModel,
+    filePickerLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>
+) {
+    Row(modifier = Modifier.fillMaxSize()) {
+        // 左ペイン: ライブラリ（常時表示）
+        Box(
+            modifier = Modifier
+                .width(380.dp)
+                .fillMaxHeight()
+                .background(DaycoreBackground)
+        ) {
+            LibraryScreen(
+                viewModel = viewModel,
+                onTrackSelected = { /* 2ペインなので画面遷移しない */ },
+                onImportFile = { filePickerLauncher.launch(arrayOf("audio/*")) },
+                onBack = { /* 2ペインでは戻るボタン不要 */ },
+                showBackButton = false
+            )
+        }
+
+        // 区切り線
+        HorizontalDivider(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(1.dp),
+            color = DaycoreDivider
+        )
+
+        // 右ペイン: プレーヤー
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+        ) {
+            PlayerScreen(
+                viewModel = viewModel,
+                onOpenLibrary = { /* 2ペインではライブラリ常時表示 */ },
+                showLibraryButton = false
+            )
+        }
+    }
+}
+
+@Composable
+private fun SinglePaneLayout(
+    viewModel: PlayerViewModel,
+    filePickerLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>
+) {
+    val navController = rememberNavController()
+
     NavHost(navController = navController, startDestination = "player") {
         composable("player") {
             PlayerScreen(
@@ -88,9 +197,7 @@ fun DaycoreApp(viewModel: PlayerViewModel = viewModel()) {
             LibraryScreen(
                 viewModel = viewModel,
                 onTrackSelected = { navController.popBackStack() },
-                onImportFile = {
-                    filePickerLauncher.launch(arrayOf("audio/*"))
-                },
+                onImportFile = { filePickerLauncher.launch(arrayOf("audio/*")) },
                 onBack = { navController.popBackStack() }
             )
         }
