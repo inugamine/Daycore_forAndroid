@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.Player
 import com.inugamine.daycore.model.AudioPreset
 import com.inugamine.daycore.ui.component.DaycoreSlider
 import com.inugamine.daycore.ui.theme.*
@@ -222,7 +223,7 @@ private fun SeekBar(
 private fun PlaybackControls(
     isPlaying: Boolean,
     isShuffled: Boolean,
-    repeatMode: PlayerViewModel.RepeatMode,
+    repeatMode: Int,
     onToggle: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -261,11 +262,11 @@ private fun PlaybackControls(
         IconButton(onClick = onToggleRepeat) {
             Icon(
                 when (repeatMode) {
-                    PlayerViewModel.RepeatMode.ONE -> Icons.Default.RepeatOne
+                    Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
                     else -> Icons.Default.Repeat
                 },
                 "リピート",
-                tint = if (repeatMode != PlayerViewModel.RepeatMode.OFF) DaycoreAccent else DaycoreTextMuted,
+                tint = if (repeatMode != Player.REPEAT_MODE_OFF) DaycoreAccent else DaycoreTextMuted,
                 modifier = Modifier.size(22.dp)
             )
         }

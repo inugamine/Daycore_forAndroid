@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.Player
 import com.inugamine.daycore.model.AudioPreset
 import com.inugamine.daycore.model.Track
 import com.inugamine.daycore.service.DaycorePlayerService
@@ -36,20 +37,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _showLibrary = MutableStateFlow(false)
     val showLibrary: StateFlow<Boolean> = _showLibrary.asStateFlow()
 
-    private val _repeatMode = MutableStateFlow(RepeatMode.OFF)
-    val repeatMode: StateFlow<RepeatMode> = _repeatMode.asStateFlow()
-
-    private val _isShuffled = MutableStateFlow(false)
-    val isShuffled: StateFlow<Boolean> = _isShuffled.asStateFlow()
-
-    enum class RepeatMode { OFF, ALL, ONE }
-
     // Delegate flows
     val isPlaying = playerService.isPlaying
     val currentPosition = playerService.currentPosition
     val duration = playerService.duration
     val speed = playerService.speed
     val pitch = playerService.pitch
+    val repeatMode = playerService.repeatMode
+    val isShuffled = playerService.isShuffled
 
     /** 検索フィルタ済みトラック */
     val filteredTracks: StateFlow<List<Track>> = combine(
@@ -90,23 +85,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun toggleLibrary() { _showLibrary.value = !_showLibrary.value }
     fun closeLibrary() { _showLibrary.value = false }
 
-    fun toggleRepeatMode() {
-        _repeatMode.value = when (_repeatMode.value) {
-            RepeatMode.OFF -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.OFF
-        }
-        playerService.player.repeatMode = when (_repeatMode.value) {
-            RepeatMode.OFF -> androidx.media3.common.Player.REPEAT_MODE_OFF
-            RepeatMode.ALL -> androidx.media3.common.Player.REPEAT_MODE_ALL
-            RepeatMode.ONE -> androidx.media3.common.Player.REPEAT_MODE_ONE
-        }
-    }
+    fun toggleRepeatMode() = playerService.toggleRepeatMode()
 
-    fun toggleShuffle() {
-        _isShuffled.value = !_isShuffled.value
-        playerService.player.shuffleModeEnabled = _isShuffled.value
-    }
+    fun toggleShuffle() = playerService.toggleShuffle()
 
     // --- ミュージックライブラリ読み込み ---
 

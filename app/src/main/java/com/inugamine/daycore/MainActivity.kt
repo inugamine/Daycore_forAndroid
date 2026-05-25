@@ -53,16 +53,27 @@ fun DaycoreApp(viewModel: PlayerViewModel = viewModel()) {
 
     // 初回起動時にパーミッションチェック
     LaunchedEffect(Unit) {
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val context = viewModel.getApplication<android.app.Application>()
+
+        // 通知パーミッション（Android 13+）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // 音楽ライブラリパーミッション
+        val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_AUDIO
         } else {
             Manifest.permission.READ_EXTERNAL_STORAGE
         }
-        val context = viewModel.getApplication<android.app.Application>()
-        if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(context, audioPermission)
+            == PackageManager.PERMISSION_GRANTED) {
             viewModel.loadMusicLibrary()
         } else {
-            permissionLauncher.launch(permission)
+            permissionLauncher.launch(audioPermission)
         }
     }
 
