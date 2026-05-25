@@ -3,7 +3,6 @@ package com.inugamine.daycore.ui.screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -53,12 +52,19 @@ fun PlayerScreen(
                 )
             )
     ) {
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
-                .statusBarsPadding(),
+                .statusBarsPadding()
+        ) {
+            val availableHeight = maxHeight
+            val artworkSize = (availableHeight * 0.30f).coerceIn(80.dp, 280.dp)
+            val spacing = (availableHeight * 0.015f).coerceAtLeast(4.dp)
+            val playBtnSize = (availableHeight * 0.075f).coerceIn(44.dp, 64.dp)
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ヘッダー
@@ -81,14 +87,14 @@ fun PlayerScreen(
             if (currentTrack != null) {
                 val track = currentTrack!!
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.weight(1f))
 
                 // アートワーク代替
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = DaycoreSurface,
                     shadowElevation = 16.dp,
-                    modifier = Modifier.size(260.dp)
+                    modifier = Modifier.size(artworkSize)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -100,7 +106,7 @@ fun PlayerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(spacing))
 
                 // トラック情報
                 Text(track.title, style = MaterialTheme.typography.titleMedium,
@@ -108,7 +114,7 @@ fun PlayerScreen(
                 Text(track.artist, style = MaterialTheme.typography.bodyMedium,
                     color = DaycoreTextSecondary, maxLines = 1)
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(spacing))
 
                 // シークバー
                 SeekBar(
@@ -118,7 +124,7 @@ fun PlayerScreen(
                     formatTime = { viewModel.formatTime(it) }
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(spacing))
 
                 // 再生コントロール
                 PlaybackControls(
@@ -132,7 +138,7 @@ fun PlayerScreen(
                     onToggleRepeat = { viewModel.toggleRepeatMode() }
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(spacing))
 
                 // プリセットセレクタ
                 PresetSelector(
@@ -140,7 +146,7 @@ fun PlayerScreen(
                     onSelect = { viewModel.selectPreset(it) }
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(spacing))
 
                 // パラメータスライダー
                 DaycoreSlider(
@@ -150,7 +156,7 @@ fun PlayerScreen(
                     valueRange = 0.25f..2.0f,
                     displayFormat = "%.2fx"
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(spacing))
                 DaycoreSlider(
                     label = "Pitch",
                     value = pitch,
@@ -159,7 +165,7 @@ fun PlayerScreen(
                     displayFormat = "%+.1f st"
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.weight(1f))
 
             } else {
                 // Empty State
@@ -185,6 +191,7 @@ fun PlayerScreen(
                 }
                 Spacer(modifier = Modifier.height(40.dp))
             }
+        }
         }
     }
 }

@@ -202,7 +202,10 @@ private fun SinglePaneLayout(
 ) {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = "player") {
+    NavHost(
+        navController = navController,
+        startDestination = "player"
+    ) {
         composable("player") {
             PlayerScreen(
                 viewModel = viewModel,
