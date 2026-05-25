@@ -36,6 +36,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _showLibrary = MutableStateFlow(false)
     val showLibrary: StateFlow<Boolean> = _showLibrary.asStateFlow()
 
+    private val _repeatMode = MutableStateFlow(RepeatMode.OFF)
+    val repeatMode: StateFlow<RepeatMode> = _repeatMode.asStateFlow()
+
+    private val _isShuffled = MutableStateFlow(false)
+    val isShuffled: StateFlow<Boolean> = _isShuffled.asStateFlow()
+
+    enum class RepeatMode { OFF, ALL, ONE }
+
     // Delegate flows
     val isPlaying = playerService.isPlaying
     val currentPosition = playerService.currentPosition
@@ -81,6 +89,24 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun toggleLibrary() { _showLibrary.value = !_showLibrary.value }
     fun closeLibrary() { _showLibrary.value = false }
+
+    fun toggleRepeatMode() {
+        _repeatMode.value = when (_repeatMode.value) {
+            RepeatMode.OFF -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.OFF
+        }
+        playerService.player.repeatMode = when (_repeatMode.value) {
+            RepeatMode.OFF -> androidx.media3.common.Player.REPEAT_MODE_OFF
+            RepeatMode.ALL -> androidx.media3.common.Player.REPEAT_MODE_ALL
+            RepeatMode.ONE -> androidx.media3.common.Player.REPEAT_MODE_ONE
+        }
+    }
+
+    fun toggleShuffle() {
+        _isShuffled.value = !_isShuffled.value
+        playerService.player.shuffleModeEnabled = _isShuffled.value
+    }
 
     // --- ミュージックライブラリ読み込み ---
 

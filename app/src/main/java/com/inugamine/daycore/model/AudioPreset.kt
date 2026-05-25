@@ -18,10 +18,10 @@ data class AudioPreset(
 
     companion object {
         val ORIGINAL = AudioPreset("original", "Original", "waveform", 1.0f, 0.0f)
-        val DAYCORE_SOFT = AudioPreset("daycore_soft", "Daycore Soft", "moon", 0.85f, -2.0f)
-        val DAYCORE = AudioPreset("daycore", "Daycore", "moon_fill", 0.80f, -3.0f)
-        val DAYCORE_DEEP = AudioPreset("daycore_deep", "Daycore Deep", "moon_stars", 0.70f, -5.0f)
-        val NIGHTCORE = AudioPreset("nightcore", "Nightcore", "sun", 1.25f, 3.0f)
+        val DAYCORE_SOFT = AudioPreset("daycore_soft", "Daycore Soft", "sun_dim", 0.85f, -2.0f)
+        val DAYCORE = AudioPreset("daycore", "Daycore", "sun", 0.80f, -3.0f)
+        val DAYCORE_DEEP = AudioPreset("daycore_deep", "Daycore Deep", "sun_bright", 0.70f, -5.0f)
+        val NIGHTCORE = AudioPreset("nightcore", "Nightcore", "moon", 1.25f, 3.0f)
 
         val ALL = listOf(ORIGINAL, DAYCORE_SOFT, DAYCORE, DAYCORE_DEEP, NIGHTCORE)
     }

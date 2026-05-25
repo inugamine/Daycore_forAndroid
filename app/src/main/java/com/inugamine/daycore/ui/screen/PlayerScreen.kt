@@ -33,6 +33,8 @@ fun PlayerScreen(
     val duration by viewModel.duration.collectAsState()
     val speed by viewModel.speed.collectAsState()
     val pitch by viewModel.pitch.collectAsState()
+    val repeatMode by viewModel.repeatMode.collectAsState()
+    val isShuffled by viewModel.isShuffled.collectAsState()
     val selectedPreset by viewModel.selectedPreset.collectAsState()
 
     Box(
@@ -114,9 +116,13 @@ fun PlayerScreen(
                 // 再生コントロール
                 PlaybackControls(
                     isPlaying = isPlaying,
+                    isShuffled = isShuffled,
+                    repeatMode = repeatMode,
                     onToggle = { viewModel.togglePlayPause() },
                     onSkipBack = { viewModel.seekTo((position - 15000).coerceAtLeast(0)) },
-                    onSkipForward = { viewModel.seekTo((position + 15000).coerceAtMost(duration)) }
+                    onSkipForward = { viewModel.seekTo((position + 15000).coerceAtMost(duration)) },
+                    onToggleShuffle = { viewModel.toggleShuffle() },
+                    onToggleRepeat = { viewModel.toggleRepeatMode() }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -151,7 +157,7 @@ fun PlayerScreen(
             } else {
                 // Empty State
                 Spacer(modifier = Modifier.weight(1f))
-                Icon(Icons.Default.NightsStay, null, tint = DaycoreAccent,
+                Icon(Icons.Default.GraphicEq, null, tint = DaycoreAccent,
                     modifier = Modifier.size(80.dp))
                 Spacer(modifier = Modifier.height(20.dp))
                 Text("Daycore", fontSize = 28.sp, fontWeight = FontWeight.Bold,
@@ -215,14 +221,23 @@ private fun SeekBar(
 @Composable
 private fun PlaybackControls(
     isPlaying: Boolean,
+    isShuffled: Boolean,
+    repeatMode: PlayerViewModel.RepeatMode,
     onToggle: () -> Unit,
     onSkipBack: () -> Unit,
-    onSkipForward: () -> Unit
+    onSkipForward: () -> Unit,
+    onToggleShuffle: () -> Unit,
+    onToggleRepeat: () -> Unit
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(40.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        IconButton(onClick = onToggleShuffle) {
+            Icon(Icons.Default.Shuffle, "シャッフル",
+                tint = if (isShuffled) DaycoreAccent else DaycoreTextMuted,
+                modifier = Modifier.size(22.dp))
+        }
         IconButton(onClick = onSkipBack) {
             Icon(Icons.Default.Replay10, "15秒戻る", tint = DaycoreTextPrimary,
                 modifier = Modifier.size(32.dp))
@@ -243,6 +258,17 @@ private fun PlaybackControls(
             Icon(Icons.Default.Forward10, "15秒進む", tint = DaycoreTextPrimary,
                 modifier = Modifier.size(32.dp))
         }
+        IconButton(onClick = onToggleRepeat) {
+            Icon(
+                when (repeatMode) {
+                    PlayerViewModel.RepeatMode.ONE -> Icons.Default.RepeatOne
+                    else -> Icons.Default.Repeat
+                },
+                "リピート",
+                tint = if (repeatMode != PlayerViewModel.RepeatMode.OFF) DaycoreAccent else DaycoreTextMuted,
+                modifier = Modifier.size(22.dp)
+            )
+        }
     }
 }
 
@@ -261,10 +287,10 @@ private fun PresetSelector(
                 leadingIcon = {
                     val icon = when (preset.id) {
                         "original" -> Icons.Default.GraphicEq
-                        "daycore_soft" -> Icons.Default.DarkMode
-                        "daycore" -> Icons.Default.NightsStay
-                        "daycore_deep" -> Icons.Default.Bedtime
-                        "nightcore" -> Icons.Default.WbSunny
+                        "daycore_soft" -> Icons.Default.BrightnessLow
+                        "daycore" -> Icons.Default.LightMode
+                        "daycore_deep" -> Icons.Default.WbSunny
+                        "nightcore" -> Icons.Default.DarkMode
                         else -> Icons.Default.MusicNote
                     }
                     Icon(icon, null, modifier = Modifier.size(16.dp))
