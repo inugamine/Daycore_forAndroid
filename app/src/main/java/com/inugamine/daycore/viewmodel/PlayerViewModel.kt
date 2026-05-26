@@ -18,6 +18,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     val playerService = DaycorePlayerService(application)
 
+    init {
+        // トラック終了時のハンドラ（全曲リピート用）
+        playerService.onTrackFinished = { handleTrackFinished() }
+    }
+
     // --- UI State ---
     private val _currentTrack = MutableStateFlow<Track?>(null)
     val currentTrack: StateFlow<Track?> = _currentTrack.asStateFlow()
@@ -88,6 +93,34 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun toggleRepeatMode() = playerService.toggleRepeatMode()
 
     fun toggleShuffle() = playerService.toggleShuffle()
+
+    // --- トラック終了ハンドリング ---
+
+    private fun handleTrackFinished() {
+        val mode = playerService.repeatMode.value
+        when (mode) {
+            Player.REPEAT_MODE_ALL -> playNextTrack()
+            // ONE は ExoPlayer が自動ループ、OFF は何もしない
+            else -> {}
+        }
+    }
+
+    private fun playNextTrack() {
+        val allTracks = filteredTracks.value
+        val current = _currentTrack.value
+        if (allTracks.isEmpty() || current == null) return
+
+        val nextTrack = if (playerService.isShuffled.value) {
+            // シャッフル: ランダムに次の曲を選ぶ
+            val candidates = allTracks.filter { it.id != current.id }
+            candidates.randomOrNull() ?: current
+        } else {
+            // 順序再生: 次の曲へ
+            val idx = allTracks.indexOfFirst { it.id == current.id }
+            if (idx >= 0) allTracks[(idx + 1) % allTracks.size] else allTracks.first()
+        }
+        selectTrack(nextTrack)
+    }
 
     // --- ミュージックライブラリ読み込み ---
 

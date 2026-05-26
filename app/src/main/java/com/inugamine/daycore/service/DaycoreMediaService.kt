@@ -86,10 +86,12 @@ class DaycoreMediaService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = mediaSession?.player
-        if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
-            stopSelf()
+        // アプリがタスクから削除されたら必ず停止
+        mediaSession?.player?.let {
+            it.stop()
+            it.clearMediaItems()
         }
+        stopSelf()
     }
 
     override fun onDestroy() {
