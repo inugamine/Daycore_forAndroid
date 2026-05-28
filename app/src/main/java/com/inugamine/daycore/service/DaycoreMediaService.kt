@@ -2,6 +2,8 @@ package com.inugamine.daycore.service
 
 import android.content.Intent
 import androidx.annotation.OptIn
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -57,7 +59,16 @@ class DaycoreMediaService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        player = ExoPlayer.Builder(this).build()
+        player = ExoPlayer.Builder(this)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                true // オーディオフォーカス自動管理（Bluetooth 切り替え対応）
+            )
+            .setHandleAudioBecomingNoisy(true) // イヤホン/Bluetooth 切断時に自動一時停止
+            .build()
         mediaSession = MediaSession.Builder(this, player).build()
 
         player.addListener(object : Player.Listener {
