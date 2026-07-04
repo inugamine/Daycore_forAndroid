@@ -60,13 +60,19 @@ class DaycoreMediaService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        player = ExoPlayer.Builder(this)
+        
+        // オーディオレンダラーの構成をカスタマイズして速度変更時の安定性を高める
+        val renderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(this)
+            .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            .setEnableAudioTrackPlaybackParams(true) // Android 6.0+ のネイティブ速度変更を優先
+
+        player = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .build(),
-                true // オーディオフォーカス自動管理
+                true
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
@@ -198,16 +204,31 @@ class DaycoreMediaService : MediaSessionService() {
     fun updateParameters(speed: Float, pitch: Float) {
         _speed.value = speed
         _pitch.value = pitch
-        // プレイヤーに直接セットせず、PlaybackParameters オブジェクトを作成してセット
-        // これにより、Sonic (ピッチシフター) が正しくリセットされる
-        updatePlaybackParams()
+        
+        // UIスレッドで実行されていることを保証し、
+        // 速度変更の適用を次のメインループまでわずかに遅延させて
+        // 連続的なスライダー操作による Sonic プロセッサのオーバーロードを防ぐ
+        scope.launch {
+            updatePlaybackParams()
+        }
     }
 
     private fun updatePlaybackParams() {
         val pitchFactor = 2f.pow(_pitch.value / 12f)
         val params = PlaybackParameters(_speed.value, pitchFactor)
+        
+        // 再生中に速度を大幅に変える際、Sonic (ExoPlayerの速度変更プロセッサ) が
+        // バッファの不整合で音を止めてしまうことがあるため、一度 prepare() を呼んで
+        // パイプラインをリフレッシュする
         if (player.playbackParameters != params) {
+            val wasPlaying = player.isPlaying
             player.playbackParameters = params
+            
+            // 速度変更後に音が止まった場合の保険として、再生状態なら prepare を叩く
+            if (wasPlaying && !player.isPlaying) {
+                player.prepare()
+                player.play()
+            }
         }
     }
 }
