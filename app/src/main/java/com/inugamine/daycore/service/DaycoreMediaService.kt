@@ -56,6 +56,7 @@ class DaycoreMediaService : MediaSessionService() {
             private set
     }
 
+    @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -65,27 +66,52 @@ class DaycoreMediaService : MediaSessionService() {
                     .setUsage(C.USAGE_MEDIA)
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .build(),
-                true // オーディオフォーカス自動管理（Bluetooth 切り替え対応）
+                true // オーディオフォーカス自動管理
             )
-            .setHandleAudioBecomingNoisy(true) // イヤホン/Bluetooth 切断時に自動一時停止
+            .setHandleAudioBecomingNoisy(true)
             .build()
+        
         mediaSession = MediaSession.Builder(this, player).build()
 
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 _isPlaying.value = playing
-                if (playing) startPositionUpdates() else stopPositionUpdates()
+                if (playing) {
+                    startPositionUpdates()
+                } else {
+                    stopPositionUpdates()
+                }
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY) {
-                    _duration.value = player.duration.coerceAtLeast(0L)
+                when (state) {
+                    Player.STATE_READY -> {
+                        _duration.value = player.duration.coerceAtLeast(0L)
+                    }
+                    Player.STATE_ENDED -> {
+                        _isPlaying.value = false
+                        _currentPosition.value = 0L
+                        stopPositionUpdates()
+                    }
                 }
-                if (state == Player.STATE_ENDED) {
-                    _isPlaying.value = false
-                    _currentPosition.value = 0L
-                    stopPositionUpdates()
-                }
+            }
+
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                // 曲が切り替わったら準備を確実にする
+                player.prepare()
+            }
+
+            override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+                // UI同期のみ行い、再帰呼び出しを防ぐ
+                _speed.value = playbackParameters.speed
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                // 再生エラー（音声停止）発生時の自動復旧
+                val currentPos = player.currentPosition
+                player.prepare()
+                player.seekTo(currentPos)
+                player.play()
             }
         })
         
@@ -121,9 +147,40 @@ class DaycoreMediaService : MediaSessionService() {
     private fun startPositionUpdates() {
         positionJob?.cancel()
         positionJob = scope.launch {
+            var stuckCounter = 0
+            var lastObservedPos = -1L
+            
             while (isActive) {
-                _currentPosition.value = player.currentPosition.coerceAtLeast(0L)
-                delay(500) // Lower frequency for background updates
+                val pos = player.currentPosition
+                val dur = player.duration
+                _currentPosition.value = pos.coerceAtLeast(0L)
+
+                // 低速再生（Daycore）時の曲末尾スタック対策
+                if (player.playWhenReady && dur > 0) {
+                    // 残り 1000ms 以内で位置が進まなくなった、または終端に達した場合
+                    if (pos >= dur - 1000 || (pos == lastObservedPos && pos > dur - 2000)) {
+                        stuckCounter++
+                    } else {
+                        stuckCounter = 0
+                    }
+
+                    // 3回連続（約600ms）で停滞が確認されたら強制的に次へ
+                    if (stuckCounter >= 3) {
+                        stuckCounter = 0
+                        if (player.hasNextMediaItem()) {
+                            player.seekToNextMediaItem()
+                            player.prepare()
+                            player.play()
+                        } else if (player.repeatMode == Player.REPEAT_MODE_ALL) {
+                            player.seekToDefaultPosition(0)
+                            player.prepare()
+                            player.play()
+                        }
+                    }
+                }
+                
+                lastObservedPos = pos
+                delay(200)
             }
         }
     }
@@ -138,18 +195,19 @@ class DaycoreMediaService : MediaSessionService() {
         updatePlaybackParams()
     }
 
-    fun setSpeed(speed: Float) {
+    fun updateParameters(speed: Float, pitch: Float) {
         _speed.value = speed
-        updatePlaybackParams()
-    }
-
-    fun setPitch(semitones: Float) {
-        _pitch.value = semitones
+        _pitch.value = pitch
+        // プレイヤーに直接セットせず、PlaybackParameters オブジェクトを作成してセット
+        // これにより、Sonic (ピッチシフター) が正しくリセットされる
         updatePlaybackParams()
     }
 
     private fun updatePlaybackParams() {
         val pitchFactor = 2f.pow(_pitch.value / 12f)
-        player.playbackParameters = PlaybackParameters(_speed.value, pitchFactor)
+        val params = PlaybackParameters(_speed.value, pitchFactor)
+        if (player.playbackParameters != params) {
+            player.playbackParameters = params
+        }
     }
 }

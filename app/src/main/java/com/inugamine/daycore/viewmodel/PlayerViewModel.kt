@@ -19,8 +19,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val playerService = DaycorePlayerService(application)
 
     init {
-        // トラック終了時のハンドラ（全曲リピート用）
-        playerService.onTrackFinished = { handleTrackFinished() }
+        // Track transition listener
+        viewModelScope.launch {
+            playerService.currentMediaId.collect { id ->
+                if (id != null) {
+                    _currentTrack.value = findTrackById(id)
+                }
+            }
+        }
     }
 
     // --- UI State ---
@@ -66,8 +72,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // --- Actions ---
 
     fun selectTrack(track: Track) {
-        _currentTrack.value = track
-        playerService.loadTrack(track)
+        val tracks = filteredTracks.value
+        val index = tracks.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+        playerService.setPlaylist(tracks, index)
         playerService.applyPreset(_selectedPreset.value)
         playerService.play()
     }
@@ -94,35 +101,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun toggleShuffle() = playerService.toggleShuffle()
 
-    // --- トラック終了ハンドリング ---
+    fun skipToNext() = playerService.skipToNext()
 
-    private fun handleTrackFinished() {
-        val mode = playerService.repeatMode.value
-        when (mode) {
-            Player.REPEAT_MODE_ALL -> playNextTrack()
-            // ONE は ExoPlayer が自動ループ、OFF は何もしない
-            else -> {}
-        }
+    fun skipToPrevious() = playerService.skipToPrevious()
+
+    // --- Helpers ---
+
+    private fun findTrackById(id: String): Track? {
+        return filteredTracks.value.find { it.id == id }
+            ?: _libraryTracks.value.find { it.id == id }
+            ?: _importedTracks.value.find { it.id == id }
     }
-
-    private fun playNextTrack() {
-        val allTracks = filteredTracks.value
-        val current = _currentTrack.value
-        if (allTracks.isEmpty() || current == null) return
-
-        val nextTrack = if (playerService.isShuffled.value) {
-            // シャッフル: ランダムに次の曲を選ぶ
-            val candidates = allTracks.filter { it.id != current.id }
-            candidates.randomOrNull() ?: current
-        } else {
-            // 順序再生: 次の曲へ
-            val idx = allTracks.indexOfFirst { it.id == current.id }
-            if (idx >= 0) allTracks[(idx + 1) % allTracks.size] else allTracks.first()
-        }
-        selectTrack(nextTrack)
-    }
-
-    // --- ミュージックライブラリ読み込み ---
 
     fun loadMusicLibrary() {
         viewModelScope.launch(Dispatchers.IO) {

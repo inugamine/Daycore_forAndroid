@@ -134,6 +134,8 @@ fun PlayerScreen(
                     onToggle = { viewModel.togglePlayPause() },
                     onSkipBack = { viewModel.seekTo((position - 15000).coerceAtLeast(0)) },
                     onSkipForward = { viewModel.seekTo((position + 15000).coerceAtMost(duration)) },
+                    onNext = { viewModel.skipToNext() },
+                    onPrevious = { viewModel.skipToPrevious() },
                     onToggleShuffle = { viewModel.toggleShuffle() },
                     onToggleRepeat = { viewModel.toggleRepeatMode() }
                 )
@@ -242,48 +244,71 @@ private fun PlaybackControls(
     onToggle: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onToggleShuffle) {
-            Icon(Icons.Default.Shuffle, "シャッフル",
-                tint = if (isShuffled) DaycoreAccent else DaycoreTextMuted,
-                modifier = Modifier.size(22.dp))
-        }
-        IconButton(onClick = onSkipBack) {
-            Icon(Icons.Default.Replay10, "15秒戻る", tint = DaycoreTextPrimary,
-                modifier = Modifier.size(32.dp))
-        }
-        FilledIconButton(
-            onClick = onToggle,
-            modifier = Modifier.size(64.dp),
-            shape = CircleShape,
-            colors = IconButtonDefaults.filledIconButtonColors(containerColor = DaycoreAccent)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                contentDescription = if (isPlaying) "一時停止" else "再生",
-                modifier = Modifier.size(36.dp)
-            )
+            IconButton(onClick = onToggleShuffle) {
+                Icon(Icons.Default.Shuffle, "シャッフル",
+                    tint = if (isShuffled) DaycoreAccent else DaycoreTextMuted,
+                    modifier = Modifier.size(22.dp))
+            }
+            
+            IconButton(onClick = onPrevious) {
+                Icon(Icons.Default.SkipPrevious, "前の曲", tint = DaycoreTextPrimary,
+                    modifier = Modifier.size(32.dp))
+            }
+
+            FilledIconButton(
+                onClick = onToggle,
+                modifier = Modifier.size(64.dp),
+                shape = CircleShape,
+                colors = IconButtonDefaults.filledIconButtonColors(containerColor = DaycoreAccent)
+            ) {
+                Icon(
+                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) "一時停止" else "再生",
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+
+            IconButton(onClick = onNext) {
+                Icon(Icons.Default.SkipNext, "次の曲", tint = DaycoreTextPrimary,
+                    modifier = Modifier.size(32.dp))
+            }
+
+            IconButton(onClick = onToggleRepeat) {
+                Icon(
+                    when (repeatMode) {
+                        Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
+                        else -> Icons.Default.Repeat
+                    },
+                    "リピート",
+                    tint = if (repeatMode != Player.REPEAT_MODE_OFF) DaycoreAccent else DaycoreTextMuted,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
-        IconButton(onClick = onSkipForward) {
-            Icon(Icons.Default.Forward10, "15秒進む", tint = DaycoreTextPrimary,
-                modifier = Modifier.size(32.dp))
-        }
-        IconButton(onClick = onToggleRepeat) {
-            Icon(
-                when (repeatMode) {
-                    Player.REPEAT_MODE_ONE -> Icons.Default.RepeatOne
-                    else -> Icons.Default.Repeat
-                },
-                "リピート",
-                tint = if (repeatMode != Player.REPEAT_MODE_OFF) DaycoreAccent else DaycoreTextMuted,
-                modifier = Modifier.size(22.dp)
-            )
+        
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(40.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp)
+        ) {
+            IconButton(onClick = onSkipBack) {
+                Icon(Icons.Default.Replay10, "15秒戻る", tint = DaycoreTextSecondary,
+                    modifier = Modifier.size(24.dp))
+            }
+            IconButton(onClick = onSkipForward) {
+                Icon(Icons.Default.Forward10, "15秒進む", tint = DaycoreTextSecondary,
+                    modifier = Modifier.size(24.dp))
+            }
         }
     }
 }

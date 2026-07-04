@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.pow
 
 /**
  * Controller class that connects to DaycoreMediaService via MediaController.
@@ -53,11 +54,11 @@ class DaycorePlayerService(private val context: Context) {
     private val _isShuffled = MutableStateFlow(false)
     val isShuffled: StateFlow<Boolean> = _isShuffled.asStateFlow()
 
+    private val _currentMediaId = MutableStateFlow<String?>(null)
+    val currentMediaId: StateFlow<String?> = _currentMediaId.asStateFlow()
+
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var positionJob: Job? = null
-
-    /** トラック再生完了時のコールバック（全曲リピート用） */
-    var onTrackFinished: (() -> Unit)? = null
 
     init {
         val sessionToken = SessionToken(context, ComponentName(context, DaycoreMediaService::class.java))
@@ -91,16 +92,19 @@ class DaycorePlayerService(private val context: Context) {
                     _isPlaying.value = false
                     _currentPosition.value = 0L
                     stopPositionUpdates()
-                    onTrackFinished?.invoke()
                 }
             }
 
             override fun onRepeatModeChanged(repeatMode: Int) {
-                // _repeatMode は自前管理のため、ExoPlayer からの同期はしない
+                _repeatMode.value = repeatMode
             }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
                 _isShuffled.value = shuffleModeEnabled
+            }
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                _currentMediaId.value = mediaItem?.mediaId
             }
         })
         
@@ -108,16 +112,20 @@ class DaycorePlayerService(private val context: Context) {
         _duration.value = controller.duration.coerceAtLeast(0L)
         _repeatMode.value = controller.repeatMode
         _isShuffled.value = controller.shuffleModeEnabled
+        _currentMediaId.value = controller.currentMediaItem?.mediaId
         if (controller.isPlaying) startPositionUpdates()
     }
 
     // --- Playback Controls ---
 
-    fun loadTrack(track: Track) {
+    fun setPlaylist(tracks: List<Track>, startIndex: Int) {
         val controller = mediaController ?: return
-        controller.stop()
-        controller.clearMediaItems()
+        val mediaItems = tracks.map { trackToMediaItem(it) }
+        controller.setMediaItems(mediaItems, startIndex, 0L)
+        controller.prepare()
+    }
 
+    private fun trackToMediaItem(track: Track): MediaItem {
         // アートワークを小さく圧縮してバイトデータとして埋め込む（IPC制限回避）
         var artworkBytes: ByteArray? = null
         if (track.artworkUri != null) {
@@ -140,6 +148,7 @@ class DaycorePlayerService(private val context: Context) {
             .setTitle(track.title)
             .setArtist(track.artist)
             .setAlbumTitle(track.albumTitle)
+            .setArtworkUri(track.artworkUri)
             .apply {
                 if (artworkBytes != null) {
                     setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
@@ -147,15 +156,11 @@ class DaycorePlayerService(private val context: Context) {
             }
             .build()
 
-        val mediaItem = MediaItem.Builder()
+        return MediaItem.Builder()
             .setUri(track.uri)
             .setMediaId(track.id)
             .setMediaMetadata(metadata)
             .build()
-
-        controller.setMediaItem(mediaItem)
-        controller.prepare()
-        _currentPosition.value = 0L
     }
 
     fun play() { mediaController?.play() }
@@ -174,20 +179,13 @@ class DaycorePlayerService(private val context: Context) {
 
     fun toggleRepeatMode() {
         val controller = mediaController ?: return
-        // OFF → ONE → ALL → OFF
-        val currentMode = _repeatMode.value
-        val nextMode = when (currentMode) {
+        val nextMode = when (controller.repeatMode) {
             Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ONE
             Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ALL
             else -> Player.REPEAT_MODE_OFF
         }
+        controller.repeatMode = nextMode
         _repeatMode.value = nextMode
-        // ExoPlayer には ONE のみ設定。ALL は自前で処理するので OFF
-        controller.repeatMode = if (nextMode == Player.REPEAT_MODE_ONE) {
-            Player.REPEAT_MODE_ONE
-        } else {
-            Player.REPEAT_MODE_OFF
-        }
     }
 
     fun toggleShuffle() {
@@ -195,22 +193,37 @@ class DaycorePlayerService(private val context: Context) {
         controller.shuffleModeEnabled = !controller.shuffleModeEnabled
     }
 
+    fun skipToNext() {
+        mediaController?.seekToNext()
+    }
+
+    fun skipToPrevious() {
+        mediaController?.seekToPrevious()
+    }
+
     // --- Speed & Pitch ---
 
     fun setSpeed(speed: Float) {
         _speed.value = speed
-        DaycoreMediaService.instance?.setSpeed(speed)
+        updatePlaybackParameters()
     }
 
     fun setPitch(semitones: Float) {
         _pitch.value = semitones
-        DaycoreMediaService.instance?.setPitch(semitones)
+        updatePlaybackParameters()
     }
 
     fun applyPreset(preset: AudioPreset) {
         _speed.value = preset.rate
         _pitch.value = preset.semitones
-        DaycoreMediaService.instance?.applyPreset(preset)
+        updatePlaybackParameters()
+    }
+
+    private fun updatePlaybackParameters() {
+        val controller = mediaController ?: return
+        val pitchFactor = 2f.pow(_pitch.value / 12f)
+        // MediaController 経由のみで設定。Service への直接命令は削除。
+        controller.setPlaybackParameters(androidx.media3.common.PlaybackParameters(_speed.value, pitchFactor))
     }
 
     // --- Position Updates ---
