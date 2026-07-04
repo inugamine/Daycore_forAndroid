@@ -1,6 +1,11 @@
 *.iml
 .gradle
 /local.properties
+
+# 署名関連（絶対に git に上げない）
+keystore.properties
+*.keystore
+*.jks
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
