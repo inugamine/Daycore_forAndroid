@@ -1,6 +1,7 @@
 package com.inugamine.daycore.model
 
 import android.net.Uri
+import com.inugamine.daycore.util.AudioArtwork
 
 /**
  * 再生対象となるトラック情報
@@ -16,6 +17,17 @@ data class Track(
     val source: TrackSource = TrackSource.FILE
 ) {
     enum class TrackSource { LIBRARY, FILE }
+
+    /**
+     * UI (Coil) 用のアートワークモデル。
+     * LIBRARY 曲は擬似アルバム問題を避けるため曲ファイル自体のサムネイルを優先し、
+     * FILE 曲はインポート時に抽出したキャッシュ画像の Uri をそのまま使う。
+     */
+    val artworkModel: Any?
+        get() = when (source) {
+            TrackSource.LIBRARY -> AudioArtwork(trackUri = uri)
+            TrackSource.FILE -> artworkUri
+        }
 
     val durationFormatted: String
         get() {

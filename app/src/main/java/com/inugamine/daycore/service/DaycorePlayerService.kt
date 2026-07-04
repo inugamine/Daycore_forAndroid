@@ -11,6 +11,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.inugamine.daycore.model.AudioPreset
 import com.inugamine.daycore.model.Track
+import com.inugamine.daycore.util.ArtworkResolver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -126,43 +127,25 @@ class DaycorePlayerService(private val context: Context) {
     }
 
     private fun trackToMediaItem(track: Track): MediaItem {
-        // アートワークをバイトデータとして埋め込む（通知/Bluetooth用）
-        var artworkBytes: ByteArray? = null
-        if (track.artworkUri != null) {
-            try {
-                val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                    try {
-                        context.contentResolver.loadThumbnail(track.uri, android.util.Size(256, 256), null)
-                    } catch (e: Exception) {
-                        null
-                    }
-                } else {
-                    val input = context.contentResolver.openInputStream(track.artworkUri)
-                    val b = android.graphics.BitmapFactory.decodeStream(input)
-                    input?.close()
-                    b
-                }
-
-                if (bitmap != null) {
-                    val stream = java.io.ByteArrayOutputStream()
-                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 75, stream)
-                    artworkBytes = stream.toByteArray()
-                    bitmap.recycle()
-                }
-            } catch (_: Exception) { }
-        }
+        // アートワークをバイトデータとして埋め込む（通知/Bluetooth用）。
+        // 曲ファイル自体の埋め込みアートワークだけを使う。
+        // albumart / loadThumbnail はアルバム単位のフォールバックを含み、
+        // 無関係な曲のジャケットが返ることがあるため使わない（UI 側と同じ方針）。
+        val artworkBytes = ArtworkResolver.loadEmbeddedArtworkJpeg(
+            context, track.uri, maxSize = 256, quality = 75
+        )
 
         val metadata = MediaMetadata.Builder()
             .setTitle(track.title)
             .setArtist(track.artist)
             .setAlbumTitle(track.albumTitle)
-            // URI だけだと System UI がアクセスできない場合があるため、
-            // 埋め込みデータ (artworkData) を優先させる
-            .setArtworkUri(track.artworkUri)
             .apply {
                 if (artworkBytes != null) {
                     setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
                 }
+                // setArtworkUri は意図的に設定しない:
+                // artworkData が無い曲で System UI が擬似アルバムの絵を
+                // 引いてしまう抜け道になるため
             }
             .build()
 

@@ -204,20 +204,24 @@ private fun SinglePaneLayout(
 
     NavHost(
         navController = navController,
-        startDestination = "player"
+        startDestination = "library"
     ) {
-        composable("player") {
-            PlayerScreen(
-                viewModel = viewModel,
-                onOpenLibrary = { navController.navigate("library") }
-            )
-        }
         composable("library") {
             LibraryScreen(
                 viewModel = viewModel,
-                onTrackSelected = { navController.popBackStack() },
+                onTrackSelected = {
+                    // 曲を選んだらプレーヤーを上に積む（戻る操作でライブラリに戻れる）
+                    navController.navigate("player") { launchSingleTop = true }
+                },
                 onImportFile = { filePickerLauncher.launch(arrayOf("audio/*")) },
-                onBack = { navController.popBackStack() }
+                onBack = { /* ルート画面なので戻る操作なし */ },
+                showBackButton = false
+            )
+        }
+        composable("player") {
+            PlayerScreen(
+                viewModel = viewModel,
+                onOpenLibrary = { navController.popBackStack() }
             )
         }
     }

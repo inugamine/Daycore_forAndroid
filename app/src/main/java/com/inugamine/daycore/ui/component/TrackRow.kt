@@ -46,7 +46,7 @@ fun TrackRow(
         ) {
             Box(contentAlignment = Alignment.Center) {
                 SubcomposeAsyncImage(
-                    model = track.artworkUri,
+                    model = track.artworkModel,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),

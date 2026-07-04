@@ -172,37 +172,64 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
         )
 
-        // メタデータ取得
-        val retriever = android.media.MediaMetadataRetriever()
-        var title: String? = null
-        var artist: String? = null
-        var durationMs: Long = 0
+        // メタデータ・埋め込みアートワークの読み出しは重いので IO スレッドで
+        viewModelScope.launch(Dispatchers.IO) {
+            val retriever = android.media.MediaMetadataRetriever()
+            var title: String? = null
+            var artist: String? = null
+            var durationMs: Long = 0
+            var artworkBytes: ByteArray? = null
 
-        try {
-            retriever.setDataSource(context, uri)
-            title = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE)
-            artist = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST)
-            durationMs = retriever.extractMetadata(
-                android.media.MediaMetadataRetriever.METADATA_KEY_DURATION
-            )?.toLongOrNull() ?: 0L
-        } catch (_: Exception) {
-        } finally {
-            retriever.release()
+            try {
+                retriever.setDataSource(context, uri)
+                title = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE)
+                artist = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                durationMs = retriever.extractMetadata(
+                    android.media.MediaMetadataRetriever.METADATA_KEY_DURATION
+                )?.toLongOrNull() ?: 0L
+                // ファイル埋め込みのアートワーク（MP3/M4A/FLAC 等）
+                artworkBytes = retriever.embeddedPicture
+            } catch (_: Exception) {
+            } finally {
+                retriever.release()
+            }
+
+            // 埋め込み画像をキャッシュに保存して Uri 化 → Coil がそのまま読める
+            val artworkUri = artworkBytes?.let { saveArtworkToCache(it, uri.toString()) }
+
+            val track = Track(
+                id = uri.toString(),
+                title = title ?: uri.lastPathSegment?.substringBeforeLast('.') ?: "不明",
+                artist = artist ?: "不明",
+                duration = durationMs,
+                uri = uri,
+                artworkUri = artworkUri,
+                source = Track.TrackSource.FILE
+            )
+
+            val current = _importedTracks.value.toMutableList()
+            if (current.none { it.id == track.id }) {
+                current.add(track)
+                _importedTracks.value = current
+            }
         }
+    }
 
-        val track = Track(
-            id = uri.toString(),
-            title = title ?: uri.lastPathSegment?.substringBeforeLast('.') ?: "不明",
-            artist = artist ?: "不明",
-            duration = durationMs,
-            uri = uri,
-            source = Track.TrackSource.FILE
-        )
-
-        val current = _importedTracks.value.toMutableList()
-        if (current.none { it.id == track.id }) {
-            current.add(track)
-            _importedTracks.value = current
+    /**
+     * 埋め込みアートワークをキャッシュディレクトリに保存して Uri を返す。
+     * ファイル名はトラック ID のハッシュなので、同じ曲の再インポートでは再利用される。
+     */
+    private fun saveArtworkToCache(bytes: ByteArray, key: String): Uri? {
+        return try {
+            val dir = java.io.File(getApplication<Application>().cacheDir, "artwork")
+            if (!dir.exists()) dir.mkdirs()
+            val file = java.io.File(dir, "${key.hashCode().toUInt()}.jpg")
+            if (!file.exists()) {
+                file.writeBytes(bytes)
+            }
+            Uri.fromFile(file)
+        } catch (_: Exception) {
+            null
         }
     }
 

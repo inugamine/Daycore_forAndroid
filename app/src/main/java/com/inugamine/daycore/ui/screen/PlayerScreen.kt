@@ -99,7 +99,7 @@ fun PlayerScreen(
                     modifier = Modifier.size(artworkSize)
                 ) {
                     SubcomposeAsyncImage(
-                        model = track.artworkUri,
+                        model = track.artworkModel,
                         contentDescription = "Artwork",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
