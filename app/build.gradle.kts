@@ -67,4 +67,7 @@ dependencies {
     implementation("androidx.compose.material3.adaptive:adaptive:1.1.0")
     implementation("androidx.compose.material3.adaptive:adaptive-layout:1.1.0")
     implementation("androidx.compose.material3:material3-window-size-class:1.3.1")
+
+    // Image Loading
+    implementation("io.coil-kt:coil-compose:2.7.0")
 }

@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import coil.compose.SubcomposeAsyncImage
 import com.inugamine.daycore.model.Track
 import com.inugamine.daycore.ui.theme.*
 
@@ -37,19 +38,29 @@ fun TrackRow(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // アイコン（アートワーク代替）
+        // アイコン（アートワーク）
         Surface(
             shape = RoundedCornerShape(8.dp),
             color = DaycoreSurfaceLight,
             modifier = Modifier.size(44.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = if (track.source == Track.TrackSource.LIBRARY)
-                        Icons.Default.MusicNote else Icons.Default.Folder,
+                SubcomposeAsyncImage(
+                    model = track.artworkUri,
                     contentDescription = null,
-                    tint = DaycoreAccent,
-                    modifier = Modifier.size(20.dp)
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    error = {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (track.source == Track.TrackSource.LIBRARY)
+                                    Icons.Default.MusicNote else Icons.Default.Folder,
+                                contentDescription = null,
+                                tint = DaycoreAccent,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                 )
             }
         }

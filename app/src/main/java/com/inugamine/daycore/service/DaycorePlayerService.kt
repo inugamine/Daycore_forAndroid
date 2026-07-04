@@ -126,20 +126,28 @@ class DaycorePlayerService(private val context: Context) {
     }
 
     private fun trackToMediaItem(track: Track): MediaItem {
-        // アートワークを小さく圧縮してバイトデータとして埋め込む（IPC制限回避）
+        // アートワークをバイトデータとして埋め込む（通知/Bluetooth用）
         var artworkBytes: ByteArray? = null
         if (track.artworkUri != null) {
             try {
-                val input = context.contentResolver.openInputStream(track.artworkUri)
-                val bitmap = android.graphics.BitmapFactory.decodeStream(input)
-                input?.close()
+                val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    try {
+                        context.contentResolver.loadThumbnail(track.uri, android.util.Size(256, 256), null)
+                    } catch (e: Exception) {
+                        null
+                    }
+                } else {
+                    val input = context.contentResolver.openInputStream(track.artworkUri)
+                    val b = android.graphics.BitmapFactory.decodeStream(input)
+                    input?.close()
+                    b
+                }
+
                 if (bitmap != null) {
-                    val small = android.graphics.Bitmap.createScaledBitmap(bitmap, 128, 128, true)
                     val stream = java.io.ByteArrayOutputStream()
-                    small.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, stream)
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 75, stream)
                     artworkBytes = stream.toByteArray()
                     bitmap.recycle()
-                    small.recycle()
                 }
             } catch (_: Exception) { }
         }
@@ -148,6 +156,8 @@ class DaycorePlayerService(private val context: Context) {
             .setTitle(track.title)
             .setArtist(track.artist)
             .setAlbumTitle(track.albumTitle)
+            // URI だけだと System UI がアクセスできない場合があるため、
+            // 埋め込みデータ (artworkData) を優先させる
             .setArtworkUri(track.artworkUri)
             .apply {
                 if (artworkBytes != null) {

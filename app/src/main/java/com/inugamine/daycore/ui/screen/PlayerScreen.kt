@@ -14,11 +14,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
+import coil.compose.SubcomposeAsyncImage
 import com.inugamine.daycore.model.AudioPreset
 import com.inugamine.daycore.ui.component.DaycoreSlider
 import com.inugamine.daycore.ui.theme.*
@@ -89,21 +91,29 @@ fun PlayerScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // アートワーク代替
+                // アートワーク表示
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = DaycoreSurface,
                     shadowElevation = 16.dp,
                     modifier = Modifier.size(artworkSize)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.MusicNote,
-                            contentDescription = null,
-                            tint = DaycoreAccent,
-                            modifier = Modifier.size(80.dp)
-                        )
-                    }
+                    SubcomposeAsyncImage(
+                        model = track.artworkUri,
+                        contentDescription = "Artwork",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        error = {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.MusicNote,
+                                    contentDescription = null,
+                                    tint = DaycoreAccent,
+                                    modifier = Modifier.size(80.dp)
+                                )
+                            }
+                        }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(spacing))
