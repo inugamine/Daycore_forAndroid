@@ -73,10 +73,14 @@ fun DaycoreApp(
     isExpanded: Boolean = false
 ) {
     // --- パーミッション ---
+    // 通知と音楽アクセスを初回起動時にまとめてリクエストする
     val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) viewModel.loadMusicLibrary()
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val audioGranted =
+            results[Manifest.permission.READ_MEDIA_AUDIO] == true ||
+            results[Manifest.permission.READ_EXTERNAL_STORAGE] == true
+        if (audioGranted) viewModel.loadMusicLibrary()
     }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -88,13 +92,17 @@ fun DaycoreApp(
     LaunchedEffect(Unit) {
         val context = viewModel.getApplication<android.app.Application>()
 
+        val permissionsToRequest = mutableListOf<String>()
+
+        // 通知（Android 13+ のみ）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
-                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                permissionsToRequest += Manifest.permission.POST_NOTIFICATIONS
             }
         }
 
+        // 音楽ライブラリアクセス
         val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_AUDIO
         } else {
@@ -104,7 +112,12 @@ fun DaycoreApp(
             == PackageManager.PERMISSION_GRANTED) {
             viewModel.loadMusicLibrary()
         } else {
-            permissionLauncher.launch(audioPermission)
+            permissionsToRequest += audioPermission
+        }
+
+        // 未許可のものをまとめて一括リクエスト
+        if (permissionsToRequest.isNotEmpty()) {
+            permissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
 
